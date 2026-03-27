@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import BattleScreen    from "./components/BattleScreen.jsx";
 import CharacterSheet  from "./components/CharacterSheet.jsx";
-import { scoreTask, getLevelInfo, LEVELS, CLASSES, LEVEL_UNLOCK_SKILLS, DUNGEONS } from "./data/gameData.js";
+import { scoreTask, getLevelInfo, getSkillSlots, LEVELS, CLASSES, LEVEL_UNLOCK_SKILLS, DUNGEONS } from "./data/gameData.js";
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "quest-v2";
+const STORAGE_KEY = "quest-v3";
 
 function loadData() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); }
@@ -24,6 +24,9 @@ function initialState() {
   const saved = loadData();
   if (saved) {
     if (!saved.dungeons) saved.dungeons = mkDungeons();
+    if (saved.character) {
+      while (saved.character.skills.length < 4) saved.character.skills.push(null);
+    }
     return saved;
   }
   return { tasks: [], xp: 0, streak: 0, lastActiveDate: null, completedDates: [], character: null, dungeons: mkDungeons() };
@@ -65,8 +68,8 @@ function LevelUpBanner({ title, onDone }) {
 // ─── Character Creation ───────────────────────────────────────────────────────
 
 function CharacterCreation({ onCreate, dark }) {
-  const [name, setName]     = useState("");
-  const [cls, setCls]       = useState("warrior");
+  const [name, setName] = useState("");
+  const [cls, setCls]   = useState("warrior");
   const fg      = dark ? "#e5e7eb" : "#111827";
   const fgMuted = dark ? "#6b7280" : "#9ca3af";
   const cardBg  = dark ? "#161616" : "#ffffff";
@@ -82,8 +85,8 @@ function CharacterCreation({ onCreate, dark }) {
       baseHp: c.baseHp,
       stats: { ...c.baseStats },
       skillPoints: 0,
-      skills: ["strike", "guard", null, null],
-      unlockedSkills: ["strike", "guard"],
+      skills: [c.startingSkill, null, null, null],
+      unlockedSkills: [c.startingSkill],
     });
   };
 
@@ -121,11 +124,11 @@ function CharacterCreation({ onCreate, dark }) {
 // ─── Task Item ────────────────────────────────────────────────────────────────
 
 function TaskItem({ task, onComplete, onDelete, dark, accent }) {
-  const fg       = dark ? "#e5e7eb" : "#111827";
-  const fgMuted  = dark ? "#6b7280" : "#9ca3af";
-  const cardBg   = dark ? "#161616" : "#ffffff";
-  const border   = dark ? "#262626" : "#e5e7eb";
-  const strikeC  = dark ? "#2a2a2a" : "#e5e7eb";
+  const fg      = dark ? "#e5e7eb" : "#111827";
+  const fgMuted = dark ? "#6b7280" : "#9ca3af";
+  const cardBg  = dark ? "#161616" : "#ffffff";
+  const border  = dark ? "#262626" : "#e5e7eb";
+  const strikeC = dark ? "#2a2a2a" : "#e5e7eb";
   const TIER_COLOR = { high: "#ef4444", medium: "#f59e0b", low: "#6b7280" };
 
   return (
@@ -152,40 +155,41 @@ function TaskItem({ task, onComplete, onDelete, dark, accent }) {
   );
 }
 
-// ─── Dungeon List ─────────────────────────────────────────────────────────────
+// ─── Dungeon Panel (sidebar) ──────────────────────────────────────────────────
 
-function DungeonList({ dungeons, onEnter, dark }) {
+function DungeonPanel({ dungeons, onEnter, dark }) {
   const fg      = dark ? "#e5e7eb" : "#111827";
   const fgMuted = dark ? "#6b7280" : "#9ca3af";
   const cardBg  = dark ? "#161616" : "#ffffff";
   const border  = dark ? "#262626" : "#e5e7eb";
   const accent  = "#7c3aed";
 
+  const clearedCount = DUNGEONS.filter(d => dungeons[d.id]?.beaten).length;
+
   return (
-    <div style={{ padding: "1.5rem", maxWidth: "580px", margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
-      <div style={{ fontSize: "0.72rem", color: fgMuted, marginBottom: "1.25rem", letterSpacing: "0.05em" }}>
-        {DUNGEONS.filter(d => dungeons[d.id]?.beaten).length} / {DUNGEONS.length} conquered
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.875rem" }}>
+        <div style={{ fontSize: "0.7rem", fontWeight: 700, color: fgMuted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Dungeons</div>
+        <div style={{ fontSize: "0.68rem", color: fgMuted }}>{clearedCount}/{DUNGEONS.length} cleared</div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {DUNGEONS.map(d => {
-          const state  = dungeons[d.id] || {};
-          const beaten = state.beaten;
+          const beaten = dungeons[d.id]?.beaten;
           return (
-            <div key={d.id} style={{ background: cardBg, border: `1px solid ${beaten ? "#7c3aed44" : border}`, borderRadius: "14px", padding: "1rem 1.25rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+            <div key={d.id} style={{ background: cardBg, border: `1px solid ${beaten ? "#7c3aed44" : border}`, borderRadius: "10px", padding: "0.625rem 0.875rem", display: "flex", alignItems: "center", gap: "0.6rem" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "2px" }}>
-                  <span style={{ fontSize: "0.88rem", fontWeight: 700, color: fg }}>{d.name}</span>
-                  {beaten && <span style={{ fontSize: "0.65rem", color: "#4ade80", background: "#14532d33", border: "1px solid #16a34a", borderRadius: "4px", padding: "1px 6px" }}>✓ cleared</span>}
+                <div style={{ fontSize: "0.78rem", fontWeight: 600, color: fg, display: "flex", alignItems: "center", gap: "4px" }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
+                  {beaten && <span style={{ fontSize: "0.6rem", color: "#4ade80", flexShrink: 0 }}>✓</span>}
                 </div>
-                <div style={{ fontSize: "0.7rem", color: fgMuted, marginBottom: "4px" }}>{d.boss.name}</div>
-                <div style={{ display: "flex", gap: "2px" }}>
+                <div style={{ display: "flex", gap: "2px", marginTop: "4px" }}>
                   {Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} style={{ width: 10, height: 4, borderRadius: 2, background: i < d.difficulty ? "#7c3aed" : border }} />
+                    <div key={i} style={{ width: 8, height: 3, borderRadius: 2, background: i < d.difficulty ? "#7c3aed" : border }} />
                   ))}
                 </div>
               </div>
               <button onClick={() => onEnter(d)}
-                style={{ background: beaten ? "transparent" : accent, border: `1px solid ${beaten ? border : accent}`, borderRadius: "10px", padding: "8px 16px", cursor: "pointer", color: beaten ? fgMuted : "#fff", fontSize: "0.78rem", fontWeight: 600, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s" }}>
+                style={{ background: beaten ? "transparent" : accent, border: `1px solid ${beaten ? border : accent}`, borderRadius: "7px", padding: "4px 10px", cursor: "pointer", color: beaten ? fgMuted : "#fff", fontSize: "0.68rem", fontWeight: 600, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0, transition: "all 0.15s" }}>
                 {beaten ? "retry" : "enter"}
               </button>
             </div>
@@ -201,7 +205,6 @@ function DungeonList({ dungeons, onEnter, dark }) {
 export default function App() {
   const [data, setData]         = useState(initialState);
   const [dark, setDark]         = useState(true);
-  const [view, setView]         = useState("tasks");    // tasks | dungeons
   const [overlay, setOverlay]   = useState(null);       // "character" | "battle"
   const [battleDungeon, setBD]  = useState(null);
   const [input, setInput]       = useState("");
@@ -213,7 +216,6 @@ export default function App() {
 
   useEffect(() => { saveData(data); }, [data]);
 
-  // Streak update on mount
   useEffect(() => {
     const today = todayKey();
     if (data.lastActiveDate === today) return;
@@ -224,7 +226,6 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Colors ──
   const bg       = dark ? "#0a0a0a" : "#f9fafb";
   const fg       = dark ? "#e5e7eb" : "#111827";
   const fgMuted  = dark ? "#6b7280" : "#9ca3af";
@@ -234,11 +235,11 @@ export default function App() {
   const accentLt = "#a78bfa";
 
   const { tasks, xp, streak, character, dungeons } = data;
-  const levelInfo  = getLevelInfo(xp);
-  const pending    = tasks.filter(t => !t.completed);
-  const completed  = tasks.filter(t => t.completed);
+  const levelInfo = getLevelInfo(xp);
+  const pending   = tasks.filter(t => !t.completed);
+  const completed = tasks.filter(t => t.completed);
 
-  // ── Gain XP (handles level-up + skill unlocks) ──
+  // ── Gain XP ──
   const gainXp = useCallback((amount) => {
     setData(d => {
       const prevLvl = currentLevel(d.xp);
@@ -251,28 +252,35 @@ export default function App() {
         const newUnlocked = [...newChar.unlockedSkills];
         for (let l = prevLvl + 1; l <= newLvl; l++) {
           const unlock = LEVEL_UNLOCK_SKILLS[l];
-          if (unlock && !newUnlocked.includes(unlock)) newUnlocked.push(unlock);
-        }
-        const newSkills = [...newChar.skills];
-        for (const sid of newUnlocked) {
-          if (!newChar.unlockedSkills.includes(sid)) {
-            const empty = newSkills.indexOf(null);
-            if (empty >= 0) newSkills[empty] = sid;
+          if (unlock) {
+            for (const sid of unlock) {
+              if (!newUnlocked.includes(sid)) newUnlocked.push(sid);
+            }
           }
         }
+
+        const newSlots  = getSkillSlots(newLvl);
+        const newSkills = [...newChar.skills];
+        while (newSkills.length < 4) newSkills.push(null);
+
+        // Auto-equip newly unlocked skills into available empty slots
+        for (const sid of newUnlocked) {
+          if (!newChar.unlockedSkills.includes(sid)) {
+            const emptyIdx = newSkills.slice(0, newSlots).indexOf(null);
+            if (emptyIdx >= 0) newSkills[emptyIdx] = sid;
+          }
+        }
+
         newChar = { ...newChar, skillPoints: newChar.skillPoints + gained, unlockedSkills: newUnlocked, skills: newSkills };
 
-        if (gained > 0) {
-          const title = LEVELS.find(l => l.level === newLvl)?.title || "";
-          setTimeout(() => setLvlUp(title), 300);
-        }
+        const title = LEVELS.find(l => l.level === newLvl)?.title || "";
+        setTimeout(() => setLvlUp(title), 300);
       }
 
       return { ...d, xp: newXp, character: newChar };
     });
   }, []);
 
-  // ── Spawn XP float ──
   const spawnFloat = useCallback((amount, e) => {
     const id   = ++floatId.current;
     const rect = e?.currentTarget?.getBoundingClientRect?.();
@@ -282,7 +290,6 @@ export default function App() {
     setTimeout(() => setFloats(fs => fs.filter(f => f.id !== id)), 1200);
   }, []);
 
-  // ── Add task ──
   const addTask = useCallback((e) => {
     e.preventDefault();
     const text = input.trim();
@@ -294,7 +301,6 @@ export default function App() {
     inputRef.current?.focus();
   }, [input]);
 
-  // ── Complete task ──
   const completeTask = useCallback((id, e) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
@@ -317,20 +323,15 @@ export default function App() {
     setData(d => ({ ...d, tasks: d.tasks.filter(t => !t.completed) }));
   }, []);
 
-  // ── Battle end ──
   const handleBattleEnd = useCallback((xpReward) => {
     if (xpReward) {
       gainXp(xpReward);
-      setData(d => ({
-        ...d,
-        dungeons: { ...d.dungeons, [battleDungeon.id]: { beaten: true } },
-      }));
+      setData(d => ({ ...d, dungeons: { ...d.dungeons, [battleDungeon.id]: { beaten: true } } }));
     }
     setBD(null);
     setOverlay(null);
   }, [gainXp, battleDungeon]);
 
-  // ── Character update (from CharacterSheet) ──
   const handleCharUpdate = useCallback((newChar, xpCost = 0) => {
     setData(d => ({ ...d, character: newChar, xp: d.xp - xpCost }));
   }, []);
@@ -350,7 +351,7 @@ export default function App() {
     return (
       <div style={{ background: bg, minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif" }}>
         <style>{globalStyles}</style>
-        <BattleScreen dungeon={battleDungeon} character={character} onEnd={handleBattleEnd} dark={dark} />
+        <BattleScreen dungeon={battleDungeon} character={character} xp={xp} onEnd={handleBattleEnd} dark={dark} />
       </div>
     );
   }
@@ -365,6 +366,8 @@ export default function App() {
     );
   }
 
+  const classInfo = CLASSES[character.class];
+
   return (
     <div style={{ minHeight: "100vh", background: bg, color: fg, fontFamily: "Inter, system-ui, -apple-system, sans-serif", transition: "background 0.3s, color 0.3s" }}>
       <style>{globalStyles}</style>
@@ -372,56 +375,54 @@ export default function App() {
       {levelUpMsg && <LevelUpBanner title={levelUpMsg} onDone={() => setLvlUp(null)} />}
 
       {/* ── Header ── */}
-      <header style={{ position: "sticky", top: 0, zIndex: 100, background: dark ? "rgba(10,10,10,0.92)" : "rgba(249,250,251,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${border}`, padding: "1rem 1.5rem" }}>
-        <div style={{ maxWidth: 580, margin: "0 auto", display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-          {/* Top row */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
-              <span style={{ fontSize: "1rem" }}>⚔️</span>
-              <span style={{ fontSize: "1rem", fontWeight: 700, letterSpacing: "-0.02em", color: fg }}>quest</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-              {streak > 0 && <span style={{ fontSize: "0.78rem", color: "#f59e0b", fontWeight: 600 }}>🔥 {streak}</span>}
-              <button onClick={() => setOverlay("character")}
-                style={{ background: "none", border: `1px solid ${border}`, borderRadius: "8px", padding: "4px 10px", cursor: "pointer", fontSize: "0.72rem", color: fgMuted, fontFamily: "inherit" }}>
-                {character.name}
-                {character.skillPoints > 0 && <span style={{ color: accentLt, marginLeft: 4 }}>⚡{character.skillPoints}</span>}
-              </button>
-              <button onClick={() => setDark(d => !d)}
-                style={{ background: "none", border: `1px solid ${border}`, borderRadius: "8px", padding: "4px 10px", cursor: "pointer", fontSize: "0.72rem", color: fgMuted, fontFamily: "inherit" }}>
-                {dark ? "light" : "dark"}
-              </button>
-            </div>
+      <header style={{ position: "sticky", top: 0, zIndex: 100, background: dark ? "rgba(10,10,10,0.92)" : "rgba(249,250,251,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${border}`, padding: "0.875rem 1.5rem" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", alignItems: "center", gap: "0.875rem" }}>
+
+          {/* Circle avatar */}
+          <button onClick={() => setOverlay("character")}
+            style={{ position: "relative", width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.05rem", flexShrink: 0, transition: "opacity 0.15s" }}
+            title="Character">
+            {classInfo?.icon}
+            {character.skillPoints > 0 && (
+              <span style={{ position: "absolute", top: -2, right: -2, minWidth: 15, height: 15, borderRadius: "50%", background: accentLt, fontSize: "0.5rem", fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 2px" }}>
+                {character.skillPoints}
+              </span>
+            )}
+          </button>
+
+          {/* Logo + name */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+            <span style={{ fontSize: "0.88rem", fontWeight: 700, letterSpacing: "-0.02em", color: fg, lineHeight: 1 }}>quest</span>
+            <span style={{ fontSize: "0.62rem", color: fgMuted, lineHeight: 1 }}>{character.name}</span>
           </div>
 
           {/* XP bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-            <span style={{ fontSize: "0.68rem", fontWeight: 600, color: accentLt, whiteSpace: "nowrap" }}>
-              Lv.{levelInfo.current.level} {levelInfo.current.title}
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
+            <span style={{ fontSize: "0.65rem", fontWeight: 600, color: accentLt, whiteSpace: "nowrap" }}>
+              Lv.{levelInfo.current.level}
             </span>
             <div style={{ flex: 1, height: 4, background: border, borderRadius: 2, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${levelInfo.progress}%`, background: "linear-gradient(90deg,#4f46e5,#7c3aed)", borderRadius: 2, transition: "width 0.5s ease" }} />
             </div>
-            <span style={{ fontSize: "0.68rem", color: fgMuted, whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: "0.62rem", color: fgMuted, whiteSpace: "nowrap" }}>
               {levelInfo.next ? `${levelInfo.into}/${levelInfo.needed}` : "MAX"}
             </span>
           </div>
 
-          {/* Nav tabs */}
-          <div style={{ display: "flex", gap: "4px" }}>
-            {["tasks", "dungeons"].map(v => (
-              <button key={v} onClick={() => setView(v)}
-                style={{ padding: "4px 14px", background: view === v ? accent + "22" : "none", border: `1px solid ${view === v ? accent : border}`, borderRadius: "20px", cursor: "pointer", fontSize: "0.75rem", fontWeight: view === v ? 600 : 400, color: view === v ? accentLt : fgMuted, fontFamily: "inherit", textTransform: "capitalize", transition: "all 0.15s" }}>
-                {v}
-              </button>
-            ))}
-          </div>
+          {/* Streak + dark toggle */}
+          {streak > 0 && <span style={{ fontSize: "0.78rem", color: "#f59e0b", fontWeight: 600, flexShrink: 0 }}>🔥{streak}</span>}
+          <button onClick={() => setDark(d => !d)}
+            style={{ background: "none", border: `1px solid ${border}`, borderRadius: "8px", padding: "4px 10px", cursor: "pointer", fontSize: "0.72rem", color: fgMuted, fontFamily: "inherit", flexShrink: 0 }}>
+            {dark ? "☀️" : "🌙"}
+          </button>
         </div>
       </header>
 
-      {/* ── Tasks view ── */}
-      {view === "tasks" && (
-        <main style={{ maxWidth: 580, margin: "0 auto", padding: "1.5rem", boxSizing: "border-box" }}>
+      {/* ── Main layout ── */}
+      <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", flexWrap: "wrap", gap: "1.5rem", padding: "1.5rem", boxSizing: "border-box", alignItems: "flex-start" }}>
+
+        {/* Tasks — left/main */}
+        <main style={{ flex: "1 1 300px", minWidth: 0 }}>
           {/* Add task */}
           <form onSubmit={addTask} style={{ marginBottom: "1.5rem" }}>
             <div style={{ display: "flex", background: cardBg, border: `1px solid ${border}`, borderRadius: "14px", overflow: "hidden", transition: "border-color 0.2s" }}
@@ -436,11 +437,11 @@ export default function App() {
               </button>
             </div>
             <div style={{ fontSize: "0.66rem", color: fgMuted, marginTop: "0.35rem", paddingLeft: "0.25rem" }}>
-              XP is scored automatically based on task complexity
+              XP scored automatically by task complexity
             </div>
           </form>
 
-          {/* Stats */}
+          {/* Stats row */}
           {tasks.length > 0 && (
             <div style={{ display: "flex", gap: "1rem", marginBottom: "1.25rem", fontSize: "0.75rem", color: fgMuted }}>
               <span><span style={{ color: fg, fontWeight: 600 }}>{pending.length}</span> remaining</span>
@@ -494,14 +495,16 @@ export default function App() {
             </div>
           )}
         </main>
-      )}
 
-      {/* ── Dungeons view ── */}
-      {view === "dungeons" && (
-        <DungeonList dungeons={dungeons} dark={dark}
-          onEnter={(d) => { setBD(d); setOverlay("battle"); }}
-        />
-      )}
+        {/* Dungeons — right panel */}
+        <aside style={{ flex: "0 0 260px", minWidth: 0 }}>
+          <DungeonPanel
+            dungeons={dungeons}
+            dark={dark}
+            onEnter={(d) => { setBD(d); setOverlay("battle"); }}
+          />
+        </aside>
+      </div>
     </div>
   );
 }
