@@ -5,7 +5,7 @@ import { SKILL_DEFS, getLevelInfo, getSkillSlots } from "../data/gameData.js";
 export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
   const stats       = character.stats;
   const boss        = dungeon.boss;
-  const playerMaxHp = character.baseHp + stats.defense * 15;
+  const playerMaxHp = character.baseHp + (stats.hp || 0) * 15 + stats.defense * 5;
   const slotCount   = getSkillSlots(getLevelInfo(xp).current.level);
 
   const [playerHp, setPlayerHp]     = useState(playerMaxHp);

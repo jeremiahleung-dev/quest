@@ -3,7 +3,7 @@ import { CLASSES, SKILL_DEFS, SHOP_SKILLS, getLevelInfo, getSkillSlots } from ".
 
 export default function CharacterSheet({ character, xp, onUpdate, onClose, dark, initialTab = "stats" }) {
   const [tab, setTab]               = useState(initialTab);
-  const [alloc, setAlloc]           = useState({ attack: 0, defense: 0, special: 0 });
+  const [alloc, setAlloc]           = useState({ attack: 0, defense: 0, special: 0, hp: 0 });
   const [swappingSlot, setSwapping] = useState(null);
 
   const fg       = dark ? "#e5e7eb" : "#111827";
@@ -22,11 +22,12 @@ export default function CharacterSheet({ character, xp, onUpdate, onClose, dark,
     attack:  character.stats.attack  + (alloc.attack  || 0),
     defense: character.stats.defense + (alloc.defense || 0),
     special: character.stats.special + (alloc.special || 0),
+    hp:     (character.stats.hp || 0) + (alloc.hp     || 0),
   };
 
   const applyAlloc = () => {
     onUpdate({ ...character, stats: totalStats, skillPoints: pending });
-    setAlloc({ attack: 0, defense: 0, special: 0 });
+    setAlloc({ attack: 0, defense: 0, special: 0, hp: 0 });
   };
 
   const buySkill = (skillId) => {
@@ -50,8 +51,8 @@ export default function CharacterSheet({ character, xp, onUpdate, onClose, dark,
     onUpdate({ ...character, skills: newSkills });
   };
 
-  const STAT_COLOR = { attack: "#ef4444", defense: "#3b82f6", special: "#a855f7" };
-  const STAT_ICON  = { attack: "⚔️", defense: "🛡️", special: "✨" };
+  const STAT_COLOR = { attack: "#ef4444", defense: "#3b82f6", special: "#a855f7", hp: "#22c55e" };
+  const STAT_ICON  = { attack: "⚔️", defense: "🛡️", special: "✨", hp: "❤️" };
 
   // Slot unlock levels: slot index → min level required
   const SLOT_UNLOCK = [1, 5, 8, 10];
@@ -98,7 +99,7 @@ export default function CharacterSheet({ character, xp, onUpdate, onClose, dark,
               </div>
             )}
 
-            {["attack", "defense", "special"].map(stat => (
+            {["attack", "defense", "special", "hp"].map(stat => (
               <div key={stat} style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: "12px", padding: "0.875rem 1rem", marginBottom: "8px", display: "flex", alignItems: "center", gap: "0.75rem" }}>
                 <span style={{ fontSize: "1.1rem", width: 24, textAlign: "center" }}>{STAT_ICON[stat]}</span>
                 <div style={{ flex: 1 }}>
@@ -123,10 +124,16 @@ export default function CharacterSheet({ character, xp, onUpdate, onClose, dark,
               </div>
             ))}
 
-            <div style={{ fontSize: "0.72rem", color: fgMuted, marginBottom: "1rem", paddingLeft: "0.25rem" }}>
-              HP: {character.baseHp + character.stats.defense * 15}
-              {alloc.defense > 0 && <span style={{ color: "#3b82f6" }}> → {character.baseHp + totalStats.defense * 15}</span>}
-            </div>
+            {(() => {
+              const curHp  = character.baseHp + (character.stats.hp || 0) * 15 + character.stats.defense * 5;
+              const nextHp = character.baseHp + totalStats.hp * 15 + totalStats.defense * 5;
+              return (
+                <div style={{ fontSize: "0.72rem", color: fgMuted, marginBottom: "1rem", paddingLeft: "0.25rem" }}>
+                  HP: {curHp}
+                  {nextHp !== curHp && <span style={{ color: "#22c55e" }}> → {nextHp}</span>}
+                </div>
+              );
+            })()}
 
             {Object.values(alloc).some(v => v > 0) && (
               <button onClick={applyAlloc} style={{ background: accent, border: "none", borderRadius: "10px", padding: "10px 24px", cursor: "pointer", color: "#fff", fontSize: "0.88rem", fontWeight: 600, fontFamily: "inherit", width: "100%" }}>

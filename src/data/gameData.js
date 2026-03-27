@@ -199,22 +199,22 @@ export const CLASSES = {
   warrior: {
     name: 'Warrior', icon: '⚔️',
     desc: 'Tough and reliable. Strong defense, steady damage.',
-    baseStats: { attack: 2, defense: 3, special: 0 },
-    baseHp: 130,
+    baseStats: { attack: 2, defense: 3, special: 0, hp: 0 },
+    baseHp: 40,
     startingSkill: 'strike',
   },
   mage: {
     name: 'Mage', icon: '🔮',
     desc: 'Fragile but devastating. Specials hit like a truck.',
-    baseStats: { attack: 0, defense: 0, special: 5 },
-    baseHp: 90,
+    baseStats: { attack: 0, defense: 0, special: 5, hp: 0 },
+    baseHp: 40,
     startingSkill: 'arcaneBolt',
   },
   rogue: {
     name: 'Rogue', icon: '🗡️',
     desc: 'Fast and aggressive. Highest raw attack output.',
-    baseStats: { attack: 4, defense: 1, special: 0 },
-    baseHp: 105,
+    baseStats: { attack: 4, defense: 1, special: 0, hp: 0 },
+    baseHp: 40,
     startingSkill: 'quickSlash',
   },
 };
