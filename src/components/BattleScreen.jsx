@@ -1,22 +1,84 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import PixelBoss from "./PixelBoss.jsx";
-import { SKILL_DEFS, getLevelInfo, getSkillSlots } from "../data/gameData.js";
+import { SKILL_DEFS, getLevelInfo, getSkillSlots, rollLoot, getEquipmentBonus, ITEMS, RARITY_COLOR, RARITY_LABEL } from "../data/gameData.js";
 
-export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
+// ─── Loot Window ──────────────────────────────────────────────────────────────
+
+function LootWindow({ loot, dark }) {
+  const fg      = dark ? "#e5e7eb" : "#111827";
+  const fgMuted = dark ? "#6b7280" : "#9ca3af";
+  const cardBg  = dark ? "#161616" : "#ffffff";
+  const border  = dark ? "#262626" : "#e5e7eb";
+
+  const allDrops = [
+    ...(loot.coins > 0 ? [{ itemId: 'coins', qty: loot.coins }] : []),
+    ...loot.items,
+  ];
+
+  if (allDrops.length === 0) return null;
+
+  return (
+    <div style={{ background: cardBg, border: `1px solid ${border}`, borderRadius: "14px", padding: "1rem", marginBottom: "1rem" }}>
+      <div style={{ fontSize: "0.65rem", fontWeight: 700, color: fgMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "0.75rem" }}>
+        Loot
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "6px" }}>
+        {allDrops.map(({ itemId, qty }, i) => {
+          const item    = ITEMS[itemId];
+          if (!item) return null;
+          const color   = RARITY_COLOR[item.rarity] || '#c8c8c8';
+          const isCoins = item.type === 'coins';
+          return (
+            <div key={i} style={{ background: dark ? "#0f0f0f" : "#f3f4f6", border: `1px solid ${color}33`, borderRadius: "8px", padding: "0.5rem", textAlign: "center", position: "relative" }}>
+              <div style={{ fontSize: "1.3rem", lineHeight: 1, marginBottom: "3px" }}>{item.icon}</div>
+              <div style={{ fontSize: "0.58rem", fontWeight: 600, color, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {isCoins ? `${qty} gp` : item.name}
+              </div>
+              {!isCoins && qty > 1 && (
+                <div style={{ fontSize: "0.55rem", color: fgMuted, marginTop: "1px" }}>×{qty}</div>
+              )}
+              {!isCoins && (
+                <div style={{ fontSize: "0.5rem", color, marginTop: "2px", opacity: 0.8 }}>{RARITY_LABEL[item.rarity]}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {loot.coins > 0 && (
+        <div style={{ fontSize: "0.68rem", color: "#fbbf24", fontWeight: 600, marginTop: "0.6rem", textAlign: "right" }}>
+          🪙 {loot.coins} gp
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Battle Screen ────────────────────────────────────────────────────────────
+
+export default function BattleScreen({ dungeon, character, xp, onEnd, dark, inventory = [], equipped = {}, onPotionUse }) {
   const stats       = character.stats;
+  const equipBonus  = getEquipmentBonus(equipped);
+  const effStats    = {
+    attack:  stats.attack  + equipBonus.attack,
+    defense: stats.defense + equipBonus.defense,
+    special: stats.special + equipBonus.special,
+    hp:      (stats.hp || 0) + equipBonus.hp,
+  };
   const boss        = dungeon.boss;
-  const playerMaxHp = character.baseHp + (stats.hp || 0) * 15 + stats.defense * 5;
+  const playerMaxHp = character.baseHp + effStats.hp * 15 + effStats.defense * 5;
   const slotCount   = getSkillSlots(getLevelInfo(xp).current.level);
 
   const [playerHp, setPlayerHp]     = useState(playerMaxHp);
   const [bossHp, setBossHp]         = useState(boss.maxHp);
   const [turn, setTurn]             = useState("player");
   const [outcome, setOutcome]       = useState(null);
+  const [loot, setLoot]             = useState(null);
   const [log, setLog]               = useState([`⚔️  ${boss.name} blocks your path!`]);
   const [cooldowns, setCooldowns]   = useState({});
   const [effects, setEffects]       = useState({
     guard: 0, shield: 0, stun: 0, poison: 0,
     berserk: 0, weaken: 0, counter: 0, warcry: 0, regen: 0, shatter: 0,
+    potionAtk: 0, potionSpl: 0,
   });
   const [bossIsHit, setBossIsHit]   = useState(false);
   const [bossAttacking, setBossAtk] = useState(false);
@@ -31,21 +93,50 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
     setLog(prev => [...prev.slice(-5), msg]);
   }, []);
 
-  const calcPlayerDmg = (skill, fx = effects) =>
+  const calcPlayerDmg = (skill, fx = effects, es = effStats) =>
     Math.max(1, Math.round(
-      (typeof skill.getDamage === "function" ? skill.getDamage(stats) : 0)
+      (typeof skill.getDamage === "function" ? skill.getDamage({
+        attack:  es.attack  + (fx.potionAtk > 0 ? 3 : 0),
+        defense: es.defense,
+        special: es.special + (fx.potionSpl > 0 ? 3 : 0),
+        hp:      es.hp,
+      }) : 0)
       * (fx.berserk > 0 ? 1.6 : 1)
       * (fx.warcry  > 0 ? 1.5 : 1)
       * (fx.shatter > 0 ? 1.4 : 1)
     ));
 
   const calcBossDmg = (fx = effects) => {
-    let d = Math.max(3, boss.attack - Math.floor(stats.defense * 1.5));
+    let d = Math.max(3, boss.attack - Math.floor(effStats.defense * 1.5));
     if (fx.weaken > 0) d = Math.floor(d * 0.65);
     if (fx.guard  > 0) d = Math.floor(d * 0.5);
     if (fx.shield > 0) d = 0;
     return d;
   };
+
+  // ── Use Potion ──
+  const usePotionItem = useCallback((itemId) => {
+    if (busy || turn !== "player" || outcome) return;
+    const item = ITEMS[itemId];
+    if (!item?.effect) return;
+    const inInventory = inventory.find(i => i.itemId === itemId);
+    if (!inInventory || inInventory.qty < 1) return;
+
+    onPotionUse?.(itemId);
+
+    if (item.effect.heal) {
+      const healed = Math.min(item.effect.heal, playerMaxHp - playerHp);
+      setPlayerHp(hp => Math.min(playerMaxHp, hp + item.effect.heal));
+      addLog(`${item.icon} ${item.name}: restored ${healed} HP.`);
+    } else if (item.effect.boost === 'attack') {
+      setEffects(fx => ({ ...fx, potionAtk: item.effect.turns }));
+      addLog(`${item.icon} ${item.name}: +3 Attack for ${item.effect.turns} turns!`);
+    } else if (item.effect.boost === 'special') {
+      setEffects(fx => ({ ...fx, potionSpl: item.effect.turns }));
+      addLog(`${item.icon} ${item.name}: +3 Special for ${item.effect.turns} turns!`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, turn, outcome, inventory, playerHp, playerMaxHp]);
 
   const doUseSkill = useCallback(async (skillId) => {
     if (busy || turn !== "player") return;
@@ -67,7 +158,7 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
         addLog("🛡️  You brace — next hit halved.");
         break;
       case "heal": {
-        const amt = skill.healAmt ? Math.round(skill.healAmt(stats)) : 25;
+        const amt = skill.healAmt ? Math.round(skill.healAmt(effStats)) : 25;
         hp = Math.min(playerMaxHp, hp + amt);
         addLog(`💚 Recovered ${amt} HP.`);
         break;
@@ -140,7 +231,7 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
       }
       case "piercing": {
         const dmg = Math.max(1, Math.round(
-          typeof skill.getDamage === "function" ? skill.getDamage(stats) : 0
+          typeof skill.getDamage === "function" ? skill.getDamage(effStats) : 0
         ));
         bhp = Math.max(0, bhp - dmg);
         setBossIsHit(true); setTimeout(() => setBossIsHit(false), 300);
@@ -158,8 +249,10 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
     setBossHp(bhp); setPlayerHp(hp); setEffects(fx); setCooldowns(cds);
 
     if (bhp <= 0) {
+      const rolledLoot = rollLoot(dungeon.id);
       setTimeout(() => {
         addLog(`💀 ${boss.name} is defeated!`);
+        setLoot(rolledLoot);
         setTurn("end"); setOutcome("win"); setBusy(false);
       }, 450);
       return;
@@ -167,7 +260,7 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
 
     setTimeout(() => doBossTurn(hp, bhp, fx, cds), 650);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busy, turn, playerHp, bossHp, effects, cooldowns, stats, playerMaxHp]);
+  }, [busy, turn, playerHp, bossHp, effects, cooldowns, effStats, playerMaxHp]);
 
   const doBossTurn = (hp, bhp, fx, cds) => {
     let newFx  = { ...fx };
@@ -182,7 +275,12 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
       setBossHp(bhp);
       addLog("☠️  Poison: 12 damage.");
       if (bhp <= 0) {
-        setTimeout(() => { addLog(`💀 Poison finishes ${boss.name}!`); setTurn("end"); setOutcome("win"); setBusy(false); }, 300);
+        const rolledLoot = rollLoot(dungeon.id);
+        setTimeout(() => {
+          addLog(`💀 Poison finishes ${boss.name}!`);
+          setLoot(rolledLoot);
+          setTurn("end"); setOutcome("win"); setBusy(false);
+        }, 300);
         return;
       }
     }
@@ -195,7 +293,7 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
     }
 
     // Tick duration buffs
-    ["guard", "shield", "berserk", "warcry", "shatter", "weaken"].forEach(k => {
+    ["guard", "shield", "berserk", "warcry", "shatter", "weaken", "potionAtk", "potionSpl"].forEach(k => {
       if (newFx[k] > 0) newFx[k]--;
     });
 
@@ -210,9 +308,9 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
 
     const atkName = boss.attacks[Math.floor(Math.random() * boss.attacks.length)];
 
-    // Counter check — boss attack is reflected
+    // Counter check
     if (newFx.counter > 0) {
-      const reflected = Math.max(3, boss.attack - Math.floor(stats.defense * 1.5));
+      const reflected = Math.max(3, boss.attack - Math.floor(effStats.defense * 1.5));
       bhp = Math.max(0, bhp - reflected);
       newFx.counter--;
       setBossHp(bhp);
@@ -221,7 +319,12 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
       setEffects(newFx); setCooldowns(newCds);
       addLog(`↩️  ${atkName} — Countered! ${reflected} reflected.`);
       if (bhp <= 0) {
-        setTimeout(() => { addLog(`💀 ${boss.name} is defeated!`); setTurn("end"); setOutcome("win"); setBusy(false); }, 300);
+        const rolledLoot = rollLoot(dungeon.id);
+        setTimeout(() => {
+          addLog(`💀 ${boss.name} is defeated!`);
+          setLoot(rolledLoot);
+          setTurn("end"); setOutcome("win"); setBusy(false);
+        }, 300);
         return;
       }
       setTurn("player"); setBusy(false);
@@ -263,6 +366,12 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
   };
 
   const activeSkills = character.skills.slice(0, slotCount);
+
+  // Potions available in battle
+  const battlePotions = inventory.filter(i => {
+    const item = ITEMS[i.itemId];
+    return item?.type === 'potion' && i.qty > 0;
+  });
 
   return (
     <div style={{ position: "fixed", inset: 0, background: dark ? "#0a0a0a" : "#f9fafb", zIndex: 500, display: "flex", flexDirection: "column", fontFamily: "Inter, system-ui, sans-serif", overflow: "hidden" }}>
@@ -328,14 +437,36 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
             <div style={{ height: "100%", width: `${(playerHp / playerMaxHp) * 100}%`, background: "linear-gradient(90deg,#15803d,#4ade80)", borderRadius: "4px", transition: "width 0.4s ease" }} />
           </div>
           <div style={{ display: "flex", gap: "6px", marginTop: "0.3rem", flexWrap: "wrap" }}>
-            {effects.guard   > 0 && <span style={{ fontSize: "0.65rem", color: "#60a5fa", background: "#1e3a5f33", border: "1px solid #1d4ed8", borderRadius: "4px", padding: "1px 6px" }}>🛡️ Guard ×{effects.guard}</span>}
-            {effects.shield  > 0 && <span style={{ fontSize: "0.65rem", color: "#c084fc", background: "#2e106533", border: "1px solid #7c3aed", borderRadius: "4px", padding: "1px 6px" }}>🔮 Aegis</span>}
-            {effects.berserk > 0 && <span style={{ fontSize: "0.65rem", color: "#fb923c", background: "#43140733", border: "1px solid #ea580c", borderRadius: "4px", padding: "1px 6px" }}>🔥 Berserk ×{effects.berserk}</span>}
-            {effects.warcry  > 0 && <span style={{ fontSize: "0.65rem", color: "#fbbf24", background: "#45260033", border: "1px solid #d97706", borderRadius: "4px", padding: "1px 6px" }}>📢 War Cry ×{effects.warcry}</span>}
-            {effects.regen   > 0 && <span style={{ fontSize: "0.65rem", color: "#86efac", background: "#0a1a0f33", border: "1px solid #15803d", borderRadius: "4px", padding: "1px 6px" }}>🌿 Regen ×{effects.regen}</span>}
-            {effects.counter > 0 && <span style={{ fontSize: "0.65rem", color: "#a78bfa", background: "#2e106533", border: "1px solid #6d28d9", borderRadius: "4px", padding: "1px 6px" }}>↩️ Counter</span>}
+            {effects.guard     > 0 && <span style={{ fontSize: "0.65rem", color: "#60a5fa", background: "#1e3a5f33", border: "1px solid #1d4ed8", borderRadius: "4px", padding: "1px 6px" }}>🛡️ Guard ×{effects.guard}</span>}
+            {effects.shield    > 0 && <span style={{ fontSize: "0.65rem", color: "#c084fc", background: "#2e106533", border: "1px solid #7c3aed", borderRadius: "4px", padding: "1px 6px" }}>🔮 Aegis</span>}
+            {effects.berserk   > 0 && <span style={{ fontSize: "0.65rem", color: "#fb923c", background: "#43140733", border: "1px solid #ea580c", borderRadius: "4px", padding: "1px 6px" }}>🔥 Berserk ×{effects.berserk}</span>}
+            {effects.warcry    > 0 && <span style={{ fontSize: "0.65rem", color: "#fbbf24", background: "#45260033", border: "1px solid #d97706", borderRadius: "4px", padding: "1px 6px" }}>📢 War Cry ×{effects.warcry}</span>}
+            {effects.regen     > 0 && <span style={{ fontSize: "0.65rem", color: "#86efac", background: "#0a1a0f33", border: "1px solid #15803d", borderRadius: "4px", padding: "1px 6px" }}>🌿 Regen ×{effects.regen}</span>}
+            {effects.counter   > 0 && <span style={{ fontSize: "0.65rem", color: "#a78bfa", background: "#2e106533", border: "1px solid #6d28d9", borderRadius: "4px", padding: "1px 6px" }}>↩️ Counter</span>}
+            {effects.potionAtk > 0 && <span style={{ fontSize: "0.65rem", color: "#f87171", background: "#43140733", border: "1px solid #b91c1c", borderRadius: "4px", padding: "1px 6px" }}>⚗️ ATK+3 ×{effects.potionAtk}</span>}
+            {effects.potionSpl > 0 && <span style={{ fontSize: "0.65rem", color: "#c084fc", background: "#2e106533", border: "1px solid #7c3aed", borderRadius: "4px", padding: "1px 6px" }}>🫧 SPL+3 ×{effects.potionSpl}</span>}
           </div>
         </div>
+
+        {/* Potions row */}
+        {turn === "player" && !outcome && battlePotions.length > 0 && (
+          <div>
+            <div style={{ fontSize: "0.62rem", color: fgMuted, marginBottom: "4px" }}>Potions</div>
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+              {battlePotions.map(({ itemId, qty }) => {
+                const item = ITEMS[itemId];
+                return (
+                  <button key={itemId} onClick={() => usePotionItem(itemId)} disabled={busy}
+                    style={{ background: cardBg, border: `1px solid ${RARITY_COLOR[item.rarity]}66`, borderRadius: "8px", padding: "4px 10px", cursor: busy ? "not-allowed" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: "4px", opacity: busy ? 0.5 : 1 }}>
+                    <span style={{ fontSize: "0.9rem" }}>{item.icon}</span>
+                    <span style={{ fontSize: "0.65rem", color: RARITY_COLOR[item.rarity], fontWeight: 600 }}>{item.name}</span>
+                    <span style={{ fontSize: "0.6rem", color: fgMuted }}>×{qty}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Skills */}
         {turn === "player" && !outcome && (
@@ -368,12 +499,15 @@ export default function BattleScreen({ dungeon, character, xp, onEnd, dark }) {
             <div style={{ fontSize: "1.15rem", fontWeight: 700, color: fg, marginBottom: "0.4rem" }}>
               {outcome === "win" ? "Victory!" : "Defeated"}
             </div>
-            {outcome === "win" && (
-              <div style={{ fontSize: "0.82rem", color: accentLt, marginBottom: "1rem" }}>+{boss.xpReward} XP earned</div>
+            {outcome === "win" && loot && (
+              <>
+                <div style={{ fontSize: "0.82rem", color: accentLt, marginBottom: "1rem" }}>+{boss.xpReward} XP earned</div>
+                <LootWindow loot={loot} dark={dark} />
+              </>
             )}
-            <button onClick={() => onEnd(outcome === "win" ? boss.xpReward : 0)}
+            <button onClick={() => onEnd(outcome === "win" ? boss.xpReward : 0, outcome === "win" ? loot : null)}
               style={{ background: accent, border: "none", borderRadius: "10px", padding: "10px 28px", cursor: "pointer", color: "#fff", fontSize: "0.9rem", fontWeight: 600, fontFamily: "inherit" }}>
-              {outcome === "win" ? "Claim Victory" : "Retreat"}
+              {outcome === "win" ? "Claim Loot" : "Retreat"}
             </button>
           </div>
         )}

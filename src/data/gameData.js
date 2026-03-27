@@ -306,3 +306,341 @@ export const DUNGEONS = [
     boss: { name: 'Malachar the Undying', type: 'darkLord', maxHp: 520, attack: 50, xpReward: 1000, attacks: ['Dark Surge','Doomsday','Soul Shatter'] },
   },
 ];
+
+// ─── Items ────────────────────────────────────────────────────────────────────
+// rarity: 'common' | 'uncommon' | 'rare' | 'very_rare' | 'ultra_rare'
+// type:   'coins' | 'weapon' | 'armor' | 'amulet' | 'potion'
+
+export const RARITY_COLOR = {
+  common:     '#c8c8c8',
+  uncommon:   '#4ade80',
+  rare:       '#60a5fa',
+  very_rare:  '#a78bfa',
+  ultra_rare: '#fbbf24',
+};
+
+export const RARITY_LABEL = {
+  common:     'Common',
+  uncommon:   'Uncommon',
+  rare:       'Rare',
+  very_rare:  'Very Rare',
+  ultra_rare: 'Ultra Rare',
+};
+
+export const ITEMS = {
+  // ── Coins ─────────────────────────────────────────────────────────────────
+  coins: {
+    id: 'coins', name: 'Gold Coins', icon: '🪙', type: 'coins',
+    rarity: 'common', desc: 'The lifeblood of adventurers.',
+  },
+
+  // ── Weapons ───────────────────────────────────────────────────────────────
+  rusty_sword: {
+    id: 'rusty_sword', name: 'Rusty Sword', icon: '🗡️', type: 'weapon',
+    rarity: 'common', bonus: { attack: 1 }, desc: '+1 Attack',
+  },
+  bone_staff: {
+    id: 'bone_staff', name: 'Bone Staff', icon: '🔱', type: 'weapon',
+    rarity: 'uncommon', bonus: { special: 2 }, desc: '+2 Special',
+  },
+  drake_fang: {
+    id: 'drake_fang', name: 'Drake Fang', icon: '🦷', type: 'weapon',
+    rarity: 'rare', bonus: { attack: 2, special: 1 }, desc: '+2 Attack, +1 Special',
+  },
+  shadow_blade: {
+    id: 'shadow_blade', name: 'Shadow Blade', icon: '🌑', type: 'weapon',
+    rarity: 'rare', bonus: { attack: 3 }, desc: '+3 Attack',
+  },
+  frost_wand: {
+    id: 'frost_wand', name: 'Frost Wand', icon: '❄️', type: 'weapon',
+    rarity: 'rare', bonus: { special: 4 }, desc: '+4 Special',
+  },
+  volcanic_axe: {
+    id: 'volcanic_axe', name: 'Volcanic Axe', icon: '🪓', type: 'weapon',
+    rarity: 'rare', bonus: { attack: 4 }, desc: '+4 Attack',
+  },
+  kraken_blade: {
+    id: 'kraken_blade', name: "Kraken's Blade", icon: '🐙', type: 'weapon',
+    rarity: 'rare', bonus: { attack: 5 }, desc: '+5 Attack',
+  },
+  holy_sword: {
+    id: 'holy_sword', name: 'Holy Sword', icon: '✝️', type: 'weapon',
+    rarity: 'rare', bonus: { attack: 3, special: 2 }, desc: '+3 Attack, +2 Special',
+  },
+  void_blade: {
+    id: 'void_blade', name: 'Void Blade', icon: '⚫', type: 'weapon',
+    rarity: 'very_rare', bonus: { attack: 6, special: 3 }, desc: '+6 Attack, +3 Special',
+  },
+  dark_sceptre: {
+    id: 'dark_sceptre', name: "Dark Lord's Sceptre", icon: '💀', type: 'weapon',
+    rarity: 'ultra_rare', bonus: { attack: 5, special: 5 }, desc: '+5 Attack, +5 Special',
+  },
+
+  // ── Armor ─────────────────────────────────────────────────────────────────
+  leather_coif: {
+    id: 'leather_coif', name: 'Leather Coif', icon: '🪖', type: 'armor',
+    rarity: 'common', bonus: { defense: 1 }, desc: '+1 Defense',
+  },
+  bone_armour: {
+    id: 'bone_armour', name: 'Bone Armour', icon: '🦴', type: 'armor',
+    rarity: 'uncommon', bonus: { defense: 2 }, desc: '+2 Defense',
+  },
+  dragonhide: {
+    id: 'dragonhide', name: 'Dragonhide Body', icon: '🐉', type: 'armor',
+    rarity: 'rare', bonus: { defense: 2, hp: 1 }, desc: '+2 Defense, +1 HP',
+  },
+  shadow_robes: {
+    id: 'shadow_robes', name: 'Shadow Robes', icon: '🌂', type: 'armor',
+    rarity: 'rare', bonus: { defense: 2, special: 1 }, desc: '+2 Defense, +1 Special',
+  },
+  glacier_shield: {
+    id: 'glacier_shield', name: 'Glacier Shield', icon: '🧊', type: 'armor',
+    rarity: 'rare', bonus: { defense: 3 }, desc: '+3 Defense',
+  },
+  obsidian_plate: {
+    id: 'obsidian_plate', name: 'Obsidian Plate', icon: '⬛', type: 'armor',
+    rarity: 'rare', bonus: { defense: 3, hp: 1 }, desc: '+3 Defense, +1 HP',
+  },
+  abyssal_aegis: {
+    id: 'abyssal_aegis', name: 'Abyssal Aegis', icon: '🌊', type: 'armor',
+    rarity: 'rare', bonus: { defense: 4 }, desc: '+4 Defense',
+  },
+  seraph_wings: {
+    id: 'seraph_wings', name: 'Seraph Wings', icon: '😇', type: 'armor',
+    rarity: 'very_rare', bonus: { defense: 3, hp: 2 }, desc: '+3 Defense, +2 HP',
+  },
+  void_shroud: {
+    id: 'void_shroud', name: 'Void Shroud', icon: '🌫️', type: 'armor',
+    rarity: 'very_rare', bonus: { defense: 4, special: 2 }, desc: '+4 Defense, +2 Special',
+  },
+  dark_armour: {
+    id: 'dark_armour', name: "Dark Lord's Armour", icon: '🖤', type: 'armor',
+    rarity: 'ultra_rare', bonus: { defense: 4, hp: 3 }, desc: '+4 Defense, +3 HP',
+  },
+
+  // ── Amulets ───────────────────────────────────────────────────────────────
+  lucky_charm: {
+    id: 'lucky_charm', name: 'Lucky Charm', icon: '🍀', type: 'amulet',
+    rarity: 'uncommon', bonus: { attack: 1, defense: 1, special: 1 }, desc: '+1 to all stats',
+  },
+  str_amulet: {
+    id: 'str_amulet', name: 'Strength Amulet', icon: '💪', type: 'amulet',
+    rarity: 'rare', bonus: { attack: 2 }, desc: '+2 Attack',
+  },
+  prot_ring: {
+    id: 'prot_ring', name: 'Protection Ring', icon: '💍', type: 'amulet',
+    rarity: 'rare', bonus: { defense: 2 }, desc: '+2 Defense',
+  },
+  ancient_talisman: {
+    id: 'ancient_talisman', name: 'Ancient Talisman', icon: '🔮', type: 'amulet',
+    rarity: 'very_rare', bonus: { special: 3, attack: 1 }, desc: '+3 Special, +1 Attack',
+  },
+  dark_amulet: {
+    id: 'dark_amulet', name: "Dark Lord's Amulet", icon: '⛓️', type: 'amulet',
+    rarity: 'ultra_rare', bonus: { attack: 3, defense: 3, special: 3 }, desc: '+3 to all stats',
+  },
+
+  // ── Potions ───────────────────────────────────────────────────────────────
+  health_potion: {
+    id: 'health_potion', name: 'Health Potion', icon: '🧪', type: 'potion',
+    rarity: 'common', effect: { heal: 40 }, desc: 'Restore 40 HP in battle',
+  },
+  super_health: {
+    id: 'super_health', name: 'Super Restore', icon: '💊', type: 'potion',
+    rarity: 'uncommon', effect: { heal: 80 }, desc: 'Restore 80 HP in battle',
+  },
+  strength_brew: {
+    id: 'strength_brew', name: 'Strength Brew', icon: '⚗️', type: 'potion',
+    rarity: 'uncommon', effect: { boost: 'attack', amount: 3, turns: 3 }, desc: '+3 Attack for 3 turns',
+  },
+  magic_brew: {
+    id: 'magic_brew', name: 'Magic Brew', icon: '🫧', type: 'potion',
+    rarity: 'uncommon', effect: { boost: 'special', amount: 3, turns: 3 }, desc: '+3 Special for 3 turns',
+  },
+};
+
+// ─── Loot Tables ──────────────────────────────────────────────────────────────
+// always: guaranteed drops every kill
+// rolls:  number of random table rolls
+// table:  weighted entries — higher weight = more likely; itemId: null = empty roll
+
+export const LOOT_TABLES = {
+  goblin_warren: {
+    always: [{ itemId: 'coins', qty: [15, 35] }],
+    rolls: 2,
+    table: [
+      { itemId: 'rusty_sword',   weight: 20, qty: [1, 1] },
+      { itemId: 'leather_coif',  weight: 20, qty: [1, 1] },
+      { itemId: 'health_potion', weight: 30, qty: [1, 2] },
+      { itemId: 'lucky_charm',   weight: 5,  qty: [1, 1] },
+      { itemId: null,            weight: 25 },
+    ],
+  },
+  haunted_crypt: {
+    always: [{ itemId: 'coins', qty: [30, 60] }],
+    rolls: 2,
+    table: [
+      { itemId: 'bone_staff',    weight: 15, qty: [1, 1] },
+      { itemId: 'bone_armour',   weight: 15, qty: [1, 1] },
+      { itemId: 'health_potion', weight: 25, qty: [1, 2] },
+      { itemId: 'str_amulet',    weight: 8,  qty: [1, 1] },
+      { itemId: 'prot_ring',     weight: 8,  qty: [1, 1] },
+      { itemId: null,            weight: 29 },
+    ],
+  },
+  dragons_lair: {
+    always: [{ itemId: 'coins', qty: [60, 100] }],
+    rolls: 2,
+    table: [
+      { itemId: 'drake_fang',    weight: 12, qty: [1, 1] },
+      { itemId: 'dragonhide',    weight: 12, qty: [1, 1] },
+      { itemId: 'super_health',  weight: 20, qty: [1, 1] },
+      { itemId: 'strength_brew', weight: 15, qty: [1, 2] },
+      { itemId: 'lucky_charm',   weight: 6,  qty: [1, 1] },
+      { itemId: null,            weight: 35 },
+    ],
+  },
+  shadow_temple: {
+    always: [{ itemId: 'coins', qty: [80, 130] }],
+    rolls: 2,
+    table: [
+      { itemId: 'shadow_blade',  weight: 10, qty: [1, 1] },
+      { itemId: 'shadow_robes',  weight: 10, qty: [1, 1] },
+      { itemId: 'magic_brew',    weight: 18, qty: [1, 2] },
+      { itemId: 'super_health',  weight: 15, qty: [1, 1] },
+      { itemId: 'prot_ring',     weight: 7,  qty: [1, 1] },
+      { itemId: null,            weight: 40 },
+    ],
+  },
+  frost_cavern: {
+    always: [{ itemId: 'coins', qty: [100, 160] }],
+    rolls: 2,
+    table: [
+      { itemId: 'frost_wand',       weight: 10, qty: [1, 1] },
+      { itemId: 'glacier_shield',   weight: 10, qty: [1, 1] },
+      { itemId: 'super_health',     weight: 18, qty: [1, 2] },
+      { itemId: 'ancient_talisman', weight: 4,  qty: [1, 1] },
+      { itemId: 'strength_brew',    weight: 12, qty: [1, 2] },
+      { itemId: null,               weight: 46 },
+    ],
+  },
+  volcanic_forge: {
+    always: [{ itemId: 'coins', qty: [130, 200] }],
+    rolls: 3,
+    table: [
+      { itemId: 'volcanic_axe',     weight: 9,  qty: [1, 1] },
+      { itemId: 'obsidian_plate',   weight: 9,  qty: [1, 1] },
+      { itemId: 'super_health',     weight: 18, qty: [1, 2] },
+      { itemId: 'strength_brew',    weight: 14, qty: [1, 2] },
+      { itemId: 'ancient_talisman', weight: 3,  qty: [1, 1] },
+      { itemId: null,               weight: 47 },
+    ],
+  },
+  abyssal_deep: {
+    always: [{ itemId: 'coins', qty: [160, 250] }],
+    rolls: 3,
+    table: [
+      { itemId: 'kraken_blade',     weight: 8,  qty: [1, 1] },
+      { itemId: 'abyssal_aegis',    weight: 8,  qty: [1, 1] },
+      { itemId: 'super_health',     weight: 16, qty: [1, 3] },
+      { itemId: 'magic_brew',       weight: 14, qty: [1, 2] },
+      { itemId: 'ancient_talisman', weight: 4,  qty: [1, 1] },
+      { itemId: null,               weight: 50 },
+    ],
+  },
+  celestial_tower: {
+    always: [{ itemId: 'coins', qty: [200, 300] }],
+    rolls: 3,
+    table: [
+      { itemId: 'holy_sword',       weight: 7,  qty: [1, 1] },
+      { itemId: 'seraph_wings',     weight: 5,  qty: [1, 1] },
+      { itemId: 'super_health',     weight: 15, qty: [1, 3] },
+      { itemId: 'magic_brew',       weight: 12, qty: [1, 2] },
+      { itemId: 'ancient_talisman', weight: 5,  qty: [1, 1] },
+      { itemId: null,               weight: 56 },
+    ],
+  },
+  void_sanctum: {
+    always: [{ itemId: 'coins', qty: [250, 400] }],
+    rolls: 3,
+    table: [
+      { itemId: 'void_blade',    weight: 5,  qty: [1, 1] },
+      { itemId: 'void_shroud',   weight: 5,  qty: [1, 1] },
+      { itemId: 'super_health',  weight: 14, qty: [1, 3] },
+      { itemId: 'strength_brew', weight: 10, qty: [1, 2] },
+      { itemId: 'magic_brew',    weight: 10, qty: [1, 2] },
+      { itemId: null,            weight: 56 },
+    ],
+  },
+  the_final_keep: {
+    always: [
+      { itemId: 'coins',       qty: [500, 750] },
+      { itemId: 'dark_sceptre', qty: [1, 1] },
+      { itemId: 'dark_armour',  qty: [1, 1] },
+    ],
+    rolls: 2,
+    table: [
+      { itemId: 'dark_amulet',  weight: 25, qty: [1, 1] },
+      { itemId: 'super_health', weight: 30, qty: [2, 4] },
+      { itemId: 'void_blade',   weight: 10, qty: [1, 1] },
+      { itemId: null,           weight: 35 },
+    ],
+  },
+};
+
+// ─── Loot Rolling ─────────────────────────────────────────────────────────────
+
+export function rollLoot(dungeonId) {
+  const table = LOOT_TABLES[dungeonId];
+  if (!table) return { coins: 0, items: [] };
+
+  const result = { coins: 0, items: [] };
+
+  // Always drops
+  for (const drop of table.always) {
+    const qty = drop.qty[0] + Math.floor(Math.random() * (drop.qty[1] - drop.qty[0] + 1));
+    if (drop.itemId === 'coins') {
+      result.coins += qty;
+    } else {
+      result.items.push({ itemId: drop.itemId, qty });
+    }
+  }
+
+  // Random rolls
+  const totalWeight = table.table.reduce((s, e) => s + e.weight, 0);
+  for (let r = 0; r < table.rolls; r++) {
+    let roll = Math.random() * totalWeight;
+    for (const entry of table.table) {
+      roll -= entry.weight;
+      if (roll <= 0) {
+        if (entry.itemId) {
+          const qty = entry.qty
+            ? entry.qty[0] + Math.floor(Math.random() * (entry.qty[1] - entry.qty[0] + 1))
+            : 1;
+          const existing = result.items.find(i => i.itemId === entry.itemId);
+          if (existing) existing.qty += qty;
+          else result.items.push({ itemId: entry.itemId, qty });
+        }
+        break;
+      }
+    }
+  }
+
+  return result;
+}
+
+// ─── Equipment Helpers ────────────────────────────────────────────────────────
+
+// equipped: { weapon: id|null, armor: id|null, amulet: id|null }
+export function getEquipmentBonus(equipped) {
+  const bonus = { attack: 0, defense: 0, special: 0, hp: 0 };
+  for (const itemId of Object.values(equipped || {})) {
+    if (!itemId) continue;
+    const item = ITEMS[itemId];
+    if (!item?.bonus) continue;
+    for (const [stat, val] of Object.entries(item.bonus)) {
+      bonus[stat] = (bonus[stat] || 0) + val;
+    }
+  }
+  return bonus;
+}

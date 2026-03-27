@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import BattleScreen    from "./components/BattleScreen.jsx";
 import CharacterSheet  from "./components/CharacterSheet.jsx";
-import { scoreTask, getLevelInfo, getSkillSlots, LEVELS, CLASSES, LEVEL_UNLOCK_SKILLS, DUNGEONS } from "./data/gameData.js";
+import { scoreTask, getLevelInfo, getSkillSlots, LEVELS, CLASSES, LEVEL_UNLOCK_SKILLS, DUNGEONS, ITEMS } from "./data/gameData.js";
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "quest-v3";
+const STORAGE_KEY = "quest-v4";
 
 function loadData() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); }
@@ -23,13 +23,20 @@ function mkDungeons() {
 function initialState() {
   const saved = loadData();
   if (saved) {
-    if (!saved.dungeons) saved.dungeons = mkDungeons();
+    if (!saved.dungeons)   saved.dungeons   = mkDungeons();
+    if (!saved.gold)       saved.gold       = 0;
+    if (!saved.inventory)  saved.inventory  = [];
+    if (!saved.equipped)   saved.equipped   = { weapon: null, armor: null, amulet: null };
     if (saved.character) {
       while (saved.character.skills.length < 4) saved.character.skills.push(null);
     }
     return saved;
   }
-  return { tasks: [], xp: 0, streak: 0, lastActiveDate: null, completedDates: [], character: null, dungeons: mkDungeons() };
+  return {
+    tasks: [], xp: 0, streak: 0, lastActiveDate: null, completedDates: [],
+    character: null, dungeons: mkDungeons(),
+    gold: 0, inventory: [], equipped: { weapon: null, armor: null, amulet: null },
+  };
 }
 
 // ─── Level helpers ────────────────────────────────────────────────────────────
@@ -61,6 +68,15 @@ function LevelUpBanner({ title, onDone }) {
       <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>⚡</div>
       <div style={{ fontSize: "0.72rem", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(255,255,255,0.7)", marginBottom: "0.3rem" }}>Level Up</div>
       <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#fff" }}>{title}</div>
+    </div>
+  );
+}
+
+function RareLootBanner({ name }) {
+  return (
+    <div style={{ position: "fixed", top: "15%", left: "50%", transform: "translateX(-50%)", zIndex: 2000, background: "linear-gradient(135deg,#1e1b4b,#312e81)", border: "1px solid #a78bfa", borderRadius: "16px", padding: "1rem 2rem", textAlign: "center", boxShadow: "0 0 40px rgba(167,139,250,0.35)", animation: "popIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards", fontFamily: "Inter, system-ui, sans-serif", pointerEvents: "none" }}>
+      <div style={{ fontSize: "0.62rem", letterSpacing: "0.15em", textTransform: "uppercase", color: "#a78bfa", marginBottom: "0.2rem" }}>Rare Drop!</div>
+      <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "#fff" }}>{name}</div>
     </div>
   );
 }
@@ -213,6 +229,7 @@ export default function App() {
   const [floats, setFloats]       = useState([]);
   const [levelUpMsg, setLvlUp]    = useState(null);
   const [showDone, setShowDone]   = useState(false);
+  const [lootFlash, setLootFlash] = useState(null); // rare item name
   const inputRef                  = useRef(null);
   const floatId                   = useRef(0);
   const profileRef                = useRef(null);
@@ -245,7 +262,7 @@ export default function App() {
   const accent   = "#7c3aed";
   const accentLt = "#a78bfa";
 
-  const { tasks, xp, streak, character, dungeons } = data;
+  const { tasks, xp, streak, character, dungeons, gold, inventory, equipped } = data;
   const levelInfo = getLevelInfo(xp);
   const pending   = tasks.filter(t => !t.completed);
   const completed = tasks.filter(t => t.completed);
@@ -334,14 +351,81 @@ export default function App() {
     setData(d => ({ ...d, tasks: d.tasks.filter(t => !t.completed) }));
   }, []);
 
-  const handleBattleEnd = useCallback((xpReward) => {
+  const handleBattleEnd = useCallback((xpReward, loot) => {
     if (xpReward) {
       gainXp(xpReward);
-      setData(d => ({ ...d, dungeons: { ...d.dungeons, [battleDungeon.id]: { beaten: true } } }));
+      setData(d => {
+        let newInventory = [...d.inventory];
+        let newGold = d.gold;
+
+        if (loot) {
+          newGold += loot.coins || 0;
+          for (const { itemId, qty } of loot.items) {
+            const existing = newInventory.find(i => i.itemId === itemId);
+            if (existing) {
+              newInventory = newInventory.map(i => i.itemId === itemId ? { ...i, qty: i.qty + qty } : i);
+            } else {
+              newInventory = [...newInventory, { itemId, qty }];
+            }
+          }
+
+          // Flash for rare+ items
+          const rareDrops = loot.items.filter(i => {
+            const item = ITEMS[i.itemId];
+            return item && ['rare','very_rare','ultra_rare'].includes(item.rarity);
+          });
+          if (rareDrops.length > 0) {
+            const topDrop = ITEMS[rareDrops[rareDrops.length - 1].itemId];
+            setTimeout(() => {
+              setLootFlash(topDrop.name);
+              setTimeout(() => setLootFlash(null), 2800);
+            }, 200);
+          }
+        }
+
+        return { ...d, dungeons: { ...d.dungeons, [battleDungeon.id]: { beaten: true } }, gold: newGold, inventory: newInventory };
+      });
     }
     setBD(null);
     setOverlay(null);
   }, [gainXp, battleDungeon]);
+
+  const handlePotionUse = useCallback((itemId) => {
+    setData(d => {
+      const newInventory = d.inventory.map(i =>
+        i.itemId === itemId ? { ...i, qty: i.qty - 1 } : i
+      ).filter(i => i.qty > 0);
+      return { ...d, inventory: newInventory };
+    });
+  }, []);
+
+  const handleEquip = useCallback((itemId, slot) => {
+    setData(d => {
+      const currentlyEquipped = d.equipped[slot];
+      let newInventory = [...d.inventory];
+      let newEquipped  = { ...d.equipped };
+
+      // Unequip current item back to inventory
+      if (currentlyEquipped) {
+        const existing = newInventory.find(i => i.itemId === currentlyEquipped);
+        if (existing) {
+          newInventory = newInventory.map(i => i.itemId === currentlyEquipped ? { ...i, qty: i.qty + 1 } : i);
+        } else {
+          newInventory = [...newInventory, { itemId: currentlyEquipped, qty: 1 }];
+        }
+      }
+
+      if (itemId) {
+        // Remove 1 from inventory
+        newInventory = newInventory.map(i => i.itemId === itemId ? { ...i, qty: i.qty - 1 } : i).filter(i => i.qty > 0);
+        newEquipped[slot] = itemId;
+      } else {
+        newEquipped[slot] = null;
+      }
+
+      return { ...d, inventory: newInventory, equipped: newEquipped };
+    });
+  }, []);
 
   const handleCharUpdate = useCallback((newChar, xpCost = 0) => {
     setData(d => ({ ...d, character: newChar, xp: d.xp - xpCost }));
@@ -362,7 +446,7 @@ export default function App() {
     return (
       <div style={{ background: bg, minHeight: "100vh", fontFamily: "Inter, system-ui, sans-serif" }}>
         <style>{globalStyles}</style>
-        <BattleScreen dungeon={battleDungeon} character={character} xp={xp} onEnd={handleBattleEnd} dark={dark} />
+        <BattleScreen dungeon={battleDungeon} character={character} xp={xp} onEnd={handleBattleEnd} dark={dark} inventory={inventory} equipped={equipped} onPotionUse={handlePotionUse} />
       </div>
     );
   }
@@ -372,7 +456,7 @@ export default function App() {
     return (
       <div style={{ background: bg, minHeight: "100vh" }}>
         <style>{globalStyles}</style>
-        <CharacterSheet character={character} xp={xp} onUpdate={handleCharUpdate} onClose={() => setOverlay(null)} dark={dark} initialTab={charTab} />
+        <CharacterSheet character={character} xp={xp} onUpdate={handleCharUpdate} onClose={() => setOverlay(null)} dark={dark} initialTab={charTab} inventory={inventory} equipped={equipped} gold={gold} onEquip={handleEquip} />
       </div>
     );
   }
@@ -383,7 +467,8 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: bg, color: fg, fontFamily: "Inter, system-ui, -apple-system, sans-serif", transition: "background 0.3s, color 0.3s" }}>
       <style>{globalStyles}</style>
       <XpFloat floats={floats} />
-      {levelUpMsg && <LevelUpBanner title={levelUpMsg} onDone={() => setLvlUp(null)} />}
+      {levelUpMsg  && <LevelUpBanner title={levelUpMsg} onDone={() => setLvlUp(null)} />}
+      {lootFlash   && <RareLootBanner name={lootFlash} />}
 
       {/* ── Header ── */}
       <header style={{ position: "sticky", top: 0, zIndex: 100, background: dark ? "rgba(10,10,10,0.92)" : "rgba(249,250,251,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${border}`, padding: "0.875rem 1.5rem" }}>
@@ -442,6 +527,7 @@ export default function App() {
 
           {/* Streak + dark toggle */}
           {streak > 0 && <span style={{ fontSize: "0.78rem", color: "#f59e0b", fontWeight: 600, flexShrink: 0 }}>🔥{streak}</span>}
+          {gold > 0 && <span style={{ fontSize: "0.78rem", color: "#fbbf24", fontWeight: 600, flexShrink: 0 }}>🪙{gold.toLocaleString()}</span>}
           <button onClick={() => setDark(d => !d)}
             style={{ background: "none", border: `1px solid ${border}`, borderRadius: "8px", padding: "4px 10px", cursor: "pointer", fontSize: "0.72rem", color: fgMuted, fontFamily: "inherit", flexShrink: 0 }}>
             {dark ? "☀️" : "🌙"}
