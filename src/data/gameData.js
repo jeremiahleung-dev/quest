@@ -42,19 +42,19 @@ export const SKILL_DEFS = {
   strike: {
     id: 'strike', name: 'Strike', icon: '⚔️', type: 'attack',
     desc: 'Reliable attack. Scales with ATK.',
-    getDamage: (s) => 14 + s.attack * 3,
+    getDamage: (s) => 6 + s.attack * 2,
     cooldown: 0, effect: null, cost: null, unlockLevel: 1,
   },
   arcaneBolt: {
     id: 'arcaneBolt', name: 'Arcane Bolt', icon: '🔵', type: 'attack',
     desc: 'Magic strike. Scales with SPL.',
-    getDamage: (s) => 12 + s.special * 4,
+    getDamage: (s) => 4 + s.special * 2,
     cooldown: 0, effect: null, cost: null, unlockLevel: 1,
   },
   quickSlash: {
     id: 'quickSlash', name: 'Quick Slash', icon: '💨', type: 'attack',
     desc: 'Fast hit. Never on cooldown.',
-    getDamage: (s) => 10 + s.attack * 3,
+    getDamage: (s) => 5 + s.attack * 2,
     cooldown: 0, effect: null, cost: null, unlockLevel: 1,
   },
 
