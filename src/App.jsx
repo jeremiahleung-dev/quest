@@ -203,16 +203,27 @@ function DungeonPanel({ dungeons, onEnter, dark }) {
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [data, setData]         = useState(initialState);
-  const [dark, setDark]         = useState(true);
-  const [overlay, setOverlay]   = useState(null);       // "character" | "battle"
-  const [battleDungeon, setBD]  = useState(null);
-  const [input, setInput]       = useState("");
-  const [floats, setFloats]     = useState([]);
-  const [levelUpMsg, setLvlUp]  = useState(null);
-  const [showDone, setShowDone] = useState(false);
-  const inputRef                = useRef(null);
-  const floatId                 = useRef(0);
+  const [data, setData]           = useState(initialState);
+  const [dark, setDark]           = useState(true);
+  const [overlay, setOverlay]     = useState(null);       // "character" | "battle"
+  const [charTab, setCharTab]     = useState("stats");
+  const [profileMenu, setMenu]    = useState(false);
+  const [battleDungeon, setBD]    = useState(null);
+  const [input, setInput]         = useState("");
+  const [floats, setFloats]       = useState([]);
+  const [levelUpMsg, setLvlUp]    = useState(null);
+  const [showDone, setShowDone]   = useState(false);
+  const inputRef                  = useRef(null);
+  const floatId                   = useRef(0);
+  const profileRef                = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) setMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => { saveData(data); }, [data]);
 
@@ -361,7 +372,7 @@ export default function App() {
     return (
       <div style={{ background: bg, minHeight: "100vh" }}>
         <style>{globalStyles}</style>
-        <CharacterSheet character={character} xp={xp} onUpdate={handleCharUpdate} onClose={() => setOverlay(null)} dark={dark} />
+        <CharacterSheet character={character} xp={xp} onUpdate={handleCharUpdate} onClose={() => setOverlay(null)} dark={dark} initialTab={charTab} />
       </div>
     );
   }
@@ -378,17 +389,37 @@ export default function App() {
       <header style={{ position: "sticky", top: 0, zIndex: 100, background: dark ? "rgba(10,10,10,0.92)" : "rgba(249,250,251,0.92)", backdropFilter: "blur(12px)", borderBottom: `1px solid ${border}`, padding: "0.875rem 1.5rem" }}>
         <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", alignItems: "center", gap: "0.875rem" }}>
 
-          {/* Circle avatar */}
-          <button onClick={() => setOverlay("character")}
-            style={{ position: "relative", width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg,#4f46e5,#7c3aed)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.05rem", flexShrink: 0, transition: "opacity 0.15s" }}
-            title="Character">
-            {classInfo?.icon}
-            {character.skillPoints > 0 && (
-              <span style={{ position: "absolute", top: -2, right: -2, minWidth: 15, height: 15, borderRadius: "50%", background: accentLt, fontSize: "0.5rem", fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 2px" }}>
-                {character.skillPoints}
-              </span>
+          {/* Circle avatar + dropdown */}
+          <div ref={profileRef} style={{ position: "relative", flexShrink: 0 }}>
+            <button onClick={() => setMenu(m => !m)}
+              style={{ position: "relative", width: 38, height: 38, borderRadius: "50%", background: profileMenu ? "linear-gradient(135deg,#6d28d9,#4f46e5)" : "linear-gradient(135deg,#4f46e5,#7c3aed)", border: `2px solid ${profileMenu ? accentLt : "transparent"}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.05rem", transition: "all 0.15s" }}>
+              {classInfo?.icon}
+              {character.skillPoints > 0 && (
+                <span style={{ position: "absolute", top: -3, right: -3, minWidth: 15, height: 15, borderRadius: "50%", background: "#ef4444", fontSize: "0.5rem", fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 2px" }}>
+                  {character.skillPoints}
+                </span>
+              )}
+            </button>
+
+            {profileMenu && (
+              <div style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, background: cardBg, border: `1px solid ${border}`, borderRadius: "12px", overflow: "hidden", zIndex: 300, minWidth: 160, boxShadow: dark ? "0 8px 32px rgba(0,0,0,0.6)" : "0 8px 32px rgba(0,0,0,0.12)", animation: "slideDown 0.16s ease" }}>
+                {[
+                  { tab: "stats",  label: "Stats",  icon: "⚔️",  note: character.skillPoints > 0 ? `${character.skillPoints} pt` : null },
+                  { tab: "skills", label: "Skills", icon: "✨",  note: null },
+                  { tab: "shop",   label: "Shop",   icon: "🛒",  note: null },
+                ].map(({ tab, label, icon, note }) => (
+                  <button key={tab} onClick={() => { setCharTab(tab); setOverlay("character"); setMenu(false); }}
+                    style={{ width: "100%", padding: "0.7rem 1rem", background: "none", border: "none", borderBottom: tab !== "shop" ? `1px solid ${border}` : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.6rem", fontFamily: "inherit", textAlign: "left", transition: "background 0.12s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = dark ? "#1f1f1f" : "#f3f4f6"}
+                    onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                    <span style={{ fontSize: "0.9rem" }}>{icon}</span>
+                    <span style={{ flex: 1, fontSize: "0.82rem", fontWeight: 500, color: fg }}>{label}</span>
+                    {note && <span style={{ fontSize: "0.65rem", color: accentLt, fontWeight: 600 }}>{note}</span>}
+                  </button>
+                ))}
+              </div>
             )}
-          </button>
+          </div>
 
           {/* Logo + name */}
           <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
@@ -515,7 +546,8 @@ const globalStyles = `
   body { margin: 0; }
   @keyframes floatUp  { 0%{opacity:1;transform:translateY(0) scale(1)} 100%{opacity:0;transform:translateY(-52px) scale(0.88)} }
   @keyframes popIn    { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.65)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1)} }
-  @keyframes slideIn  { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes slideIn   { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes slideDown { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
   .task-row:hover .delete-btn { opacity: 1 !important; }
   input:focus { outline: none; }
   button:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }

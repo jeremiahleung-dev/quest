@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { CLASSES, SKILL_DEFS, SHOP_SKILLS, getLevelInfo, getSkillSlots } from "../data/gameData.js";
 
-export default function CharacterSheet({ character, xp, onUpdate, onClose, dark }) {
-  const [tab, setTab]               = useState("stats");
+export default function CharacterSheet({ character, xp, onUpdate, onClose, dark, initialTab = "stats" }) {
+  const [tab, setTab]               = useState(initialTab);
   const [alloc, setAlloc]           = useState({ attack: 0, defense: 0, special: 0 });
   const [swappingSlot, setSwapping] = useState(null);
 
