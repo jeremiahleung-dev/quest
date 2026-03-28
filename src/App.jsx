@@ -1,18 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import BattleScreen    from "./components/BattleScreen.jsx";
 import CharacterSheet  from "./components/CharacterSheet.jsx";
+import AuthPage        from "./components/auth/AuthPage.jsx";
+import { useAuth }     from "./contexts/AuthContext.jsx";
 import { scoreTask, getLevelInfo, getSkillSlots, LEVELS, CLASSES, LEVEL_UNLOCK_SKILLS, DUNGEONS, ITEMS } from "./data/gameData.js";
 
-// ─── Persistence ──────────────────────────────────────────────────────────────
+// ─── Persistence (per-user, keyed by Supabase user ID) ───────────────────────
 
-const STORAGE_KEY = "quest-v4";
-
-function loadData() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); }
+function userKey(uid)  { return `quest-v4-${uid}`; }
+function loadData(uid) {
+  try { return JSON.parse(localStorage.getItem(userKey(uid)) || "null"); }
   catch { return null; }
 }
-
-function saveData(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+function saveData(d, uid) { localStorage.setItem(userKey(uid), JSON.stringify(d)); }
 
 function todayKey() { return new Date().toISOString().slice(0, 10); }
 
@@ -20,23 +20,27 @@ function mkDungeons() {
   return Object.fromEntries(DUNGEONS.map(d => [d.id, { beaten: false }]));
 }
 
-function initialState() {
-  const saved = loadData();
-  if (saved) {
-    if (!saved.dungeons)   saved.dungeons   = mkDungeons();
-    if (!saved.gold)       saved.gold       = 0;
-    if (!saved.inventory)  saved.inventory  = [];
-    if (!saved.equipped)   saved.equipped   = { weapon: null, armor: null, amulet: null };
-    if (saved.character) {
-      while (saved.character.skills.length < 4) saved.character.skills.push(null);
-    }
-    return saved;
-  }
+function defaultState() {
   return {
     tasks: [], xp: 0, streak: 0, lastActiveDate: null, completedDates: [],
     character: null, dungeons: mkDungeons(),
     gold: 0, inventory: [], equipped: { weapon: null, armor: null, amulet: null },
   };
+}
+
+function loadUserState(uid) {
+  const saved = loadData(uid);
+  if (saved) {
+    if (!saved.dungeons)  saved.dungeons  = mkDungeons();
+    if (!saved.gold)      saved.gold      = 0;
+    if (!saved.inventory) saved.inventory = [];
+    if (!saved.equipped)  saved.equipped  = { weapon: null, armor: null, amulet: null };
+    if (saved.character) {
+      while (saved.character.skills.length < 4) saved.character.skills.push(null);
+    }
+    return saved;
+  }
+  return defaultState();
 }
 
 // ─── Level helpers ────────────────────────────────────────────────────────────
@@ -219,8 +223,13 @@ function DungeonPanel({ dungeons, onEnter, dark }) {
 // ─── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [data, setData]           = useState(initialState);
-  const [dark, setDark]           = useState(true);
+  const { user, loading: authLoading, signOut, touchActivity } = useAuth();
+
+  const [data, setData]           = useState(null);
+  const [dark, setDark]           = useState(() => {
+    const pref = localStorage.getItem("quest-theme");
+    return pref !== null ? pref === "dark" : true;
+  });
   const [overlay, setOverlay]     = useState(null);       // "character" | "battle"
   const [charTab, setCharTab]     = useState("stats");
   const [profileMenu, setMenu]    = useState(false);
@@ -242,9 +251,27 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  useEffect(() => { saveData(data); }, [data]);
+  // Load game data when user signs in; clear it when they sign out
+  useEffect(() => {
+    if (user) {
+      setData(loadUserState(user.id));
+    } else {
+      setData(null);
+    }
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist game data whenever it changes (per user)
+  useEffect(() => {
+    if (data && user) saveData(data, user.id);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist dark-mode preference (not user-specific)
+  useEffect(() => {
+    localStorage.setItem("quest-theme", dark ? "dark" : "light");
+  }, [dark]);
 
   useEffect(() => {
+    if (!data) return;
     const today = todayKey();
     if (data.lastActiveDate === today) return;
     const yesterday = new Date();
@@ -252,7 +279,7 @@ export default function App() {
     const yKey = yesterday.toISOString().slice(0, 10);
     setData(d => ({ ...d, streak: d.lastActiveDate === yKey ? d.streak : 0, lastActiveDate: today }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [data?.lastActiveDate]);
 
   const bg       = dark ? "#0a0a0a" : "#f9fafb";
   const fg       = dark ? "#e5e7eb" : "#111827";
@@ -261,6 +288,29 @@ export default function App() {
   const border   = dark ? "#262626" : "#e5e7eb";
   const accent   = "#7c3aed";
   const accentLt = "#a78bfa";
+
+  // ── Auth: loading ──
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter, system-ui, sans-serif" }}>
+        <style>{globalStyles}</style>
+        <span style={{ color: accent, fontSize: "0.88rem" }}>Loading…</span>
+      </div>
+    );
+  }
+
+  // ── Auth: not signed in ──
+  if (!user) {
+    return (
+      <div style={{ background: bg, minHeight: "100vh" }}>
+        <style>{globalStyles}</style>
+        <AuthPage dark={dark} />
+      </div>
+    );
+  }
+
+  // ── Game data still hydrating ──
+  if (!data) return null;
 
   const { tasks, xp, streak, character, dungeons, gold, inventory, equipped } = data;
   const levelInfo = getLevelInfo(xp);
@@ -494,7 +544,7 @@ export default function App() {
                   { tab: "shop",   label: "Shop",   icon: "🛒",  note: null },
                 ].map(({ tab, label, icon, note }) => (
                   <button key={tab} onClick={() => { setCharTab(tab); setOverlay("character"); setMenu(false); }}
-                    style={{ width: "100%", padding: "0.7rem 1rem", background: "none", border: "none", borderBottom: tab !== "shop" ? `1px solid ${border}` : "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.6rem", fontFamily: "inherit", textAlign: "left", transition: "background 0.12s" }}
+                    style={{ width: "100%", padding: "0.7rem 1rem", background: "none", border: "none", borderBottom: `1px solid ${border}`, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.6rem", fontFamily: "inherit", textAlign: "left", transition: "background 0.12s" }}
                     onMouseEnter={e => e.currentTarget.style.background = dark ? "#1f1f1f" : "#f3f4f6"}
                     onMouseLeave={e => e.currentTarget.style.background = "none"}>
                     <span style={{ fontSize: "0.9rem" }}>{icon}</span>
@@ -502,6 +552,14 @@ export default function App() {
                     {note && <span style={{ fontSize: "0.65rem", color: accentLt, fontWeight: 600 }}>{note}</span>}
                   </button>
                 ))}
+                {/* Sign out */}
+                <button onClick={() => { setMenu(false); signOut(); }}
+                  style={{ width: "100%", padding: "0.7rem 1rem", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.6rem", fontFamily: "inherit", textAlign: "left", transition: "background 0.12s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = dark ? "#1f1f1f" : "#f3f4f6"}
+                  onMouseLeave={e => e.currentTarget.style.background = "none"}>
+                  <span style={{ fontSize: "0.9rem" }}>🚪</span>
+                  <span style={{ flex: 1, fontSize: "0.82rem", fontWeight: 500, color: "#ef4444" }}>Sign out</span>
+                </button>
               </div>
             )}
           </div>
